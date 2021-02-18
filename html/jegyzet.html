@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    <title>AlfaFéra - %name%</title>
+    <meta name="description" content="Egy módosítása a népszerű bioszfera.com-nak.">
+    <link rel="stylesheet" href="/assets/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat:400,400i,700,700i,600,600i">
+    <link rel="stylesheet" href="/assets/fonts/simple-line-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/baguettebox.js/1.10.0/baguetteBox.min.css">
+    <link rel="stylesheet" href="/assets/css/styles.min.css">
+    <style>
+        .rewrite:hover {
+            color: #212529 !important;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar navbar-light navbar-expand-lg fixed-top bg-white clean-navbar">
+        <div class="container"><a class="navbar-brand logo" href="/">AlfaFéra</a><button data-toggle="collapse" class="navbar-toggler" data-target="#navcol-1"><span class="sr-only">Toggle navigation</span><span class="navbar-toggler-icon"></span></button>
+            <div class="collapse navbar-collapse"
+                id="navcol-1">
+                <ul class="nav navbar-nav ml-auto">
+                    <li class="nav-item" role="presentation"><a class="nav-link" href="/">Főoldal</a></li>
+                    <li class="nav-item" role="presentation"><a class="nav-link" href="/jegyzetek">Jegyzetek</a></li>
+                    <li class="nav-item" role="presentation"><a class="nav-link" href="/oldalrol">Az Oldalról</a></li>
+                    <li class="nav-item" role="presentation"><a class="nav-link" href="/kapcsolat">Kapcsolat</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <main class="page product-page">
+        <section class="clean-block clean-product dark">
+            <div class="container">
+                <div class="block-heading">
+                    <h2 class="text-info">%name%</h2>
+                    <p>%categories%</p>
+                </div>
+                <div class="block-content">
+                    <div class="product-info">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <img style="max-width: 100%;" src="/jegyzet/%local%/kep">
+                            </div>
+                            <div class="col-md-6">
+                                <div class="info">
+                                    <a class="btn btn-primary" role="button" href="/jegyzet/%local%/megtekintes">Megtekintés</a><a class="btn btn-primary" role="button" href="/jegyzet/letoltes/%local%/" style="margin-left: 1vw;">Letöltés</a>
+                                    <div class="summary">
+                                        <p>Statisztikák:<br><br>Megtekintések száma: %megtekintesek%<br>Letöltések száma: %letoltesek%<br>Összpont: %osszpont%<br><br>NSZA* pont: %nsza_pont%<br><strike>NSZA tendencia pont: ~0</strike><br><br>*Népszerűségi algoritmus</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="clean-related-items">
+                        <h3>Hasonló jegyzetek</h3>
+                        <div class="items">
+                            <div class="row justify-content-center">
+                                <div class="col-sm-6 col-lg-4">
+                                    <div class="clean-related-item">
+                                        <div class="image"><a href="/jegyzet/%local_1%"><img class="img-fluid d-block mx-auto" src="/jegyzet/%local_1%/kep"></a></div>
+                                        <div class="related-name">
+                                            <h4><a href="/jegyzet/%local_1%">%note_1%</a></h4>
+                                            <a class="rewrite">Közelség*: %distance_1%</a>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6 col-lg-4">
+                                    <div class="clean-related-item">
+                                        <div class="image"><a href="/jegyzet/%local_2%"><img class="img-fluid d-block mx-auto" src="/jegyzet/%local_2%/kep"></a></div>
+                                        <div class="related-name">
+                                            <h4><a href="/jegyzet/%local_2%">%note_2%</a></h4>
+                                            <a class="rewrite">Közelség*: %distance_2%</a>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6 col-lg-4">
+                                    <div class="clean-related-item">
+                                        <div class="image"><a href="/jegyzet/%local_3%"><img class="img-fluid d-block mx-auto" src="/jegyzet/%local_3%/kep"></a></div>
+                                        <div class="related-name">
+                                            <h4><a href="/jegyzet/%local_3%">%note_3%</a></h4>
+                                            <a class="rewrite">Közelség*: %distance_3%</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <p>*A k-NN algoritmus alapján számolt közelség</p>
+                </div>
+            </div>
+        </section>
+    </main>
+    <footer class="page-footer dark">
+        <div class="container">
+            <div class="row">
+                <div class="col-sm-3 col-xl-4">
+                    <h5>Az oldal</h5>
+                    <ul>
+                        <li><a href="/">Főoldal</a></li>
+                        <li><a href="/oldalrol">Az oldalról</a></li>
+                        <li><a href="/kapcsolat">Kapcsolat</a></li>
+                        <li><a href="/gyik">GYIK</a></li>
+                    </ul>
+                </div>
+                <div class="col-sm-3 col-xl-4">
+                    <h5>Jegyzetek</h5>
+                    <ul>
+                        <li><a href="/jegyzetek">Jegyzetek</a></li>
+                        <li><a href="http://bioszfera.com">Bioszféra</a></li>
+                    </ul>
+                </div>
+                <div class="col-sm-3 col-xl-4">
+                    <h5>Fejlesztés</h5>
+                    <ul>
+                        <li><a href="/stats">Statisztikák</a></li>
+                        <li><a href="/logs">Naplózás</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="footer-copyright">
+            <p>© 2021 Alfaféra</p>
+        </div>
+    </footer>
+    <script src="/assets/js/jquery.min.js"></script>
+    <script src="/assets/bootstrap/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/baguettebox.js/1.10.0/baguetteBox.min.js"></script>
+    <script src="/assets/js/script.min.js"></script>
+</body>
+
+</html>

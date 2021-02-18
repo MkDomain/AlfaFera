@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    <title>AlfaFéra - Kapcsolat</title>
+    <meta name="description" content="Egy módosítása a népszerű bioszfera.com-nak.">
+    <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat:400,400i,700,700i,600,600i">
+    <link rel="stylesheet" href="assets/fonts/simple-line-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/baguettebox.js/1.10.0/baguetteBox.min.css">
+    <link rel="stylesheet" href="assets/css/styles.min.css">
+    <script>
+        window.onload = function() {
+            const queryString = window.location.search;
+            const urlParams = new URLSearchParams(queryString);
+            if (urlParams.has("success")) {
+                alert("Sikeresen elkülted az üzenetet!")
+                urlParams.delete("success");
+            }
+        }
+    </script>
+</head>
+
+<body>
+    <nav class="navbar navbar-light navbar-expand-lg fixed-top bg-white clean-navbar">
+        <div class="container"><a class="navbar-brand logo" href="/">AlfaFéra</a><button data-toggle="collapse" class="navbar-toggler" data-target="#navcol-1"><span class="sr-only">Toggle navigation</span><span class="navbar-toggler-icon"></span></button>
+            <div class="collapse navbar-collapse"
+                id="navcol-1">
+                <ul class="nav navbar-nav ml-auto">
+                    <li class="nav-item" role="presentation"><a class="nav-link" href="/">Főoldal</a></li>
+                    <li class="nav-item" role="presentation"><a class="nav-link" href="jegyzetek">Jegyzetek</a></li>
+                    <li class="nav-item" role="presentation"><a class="nav-link" href="oldalrol">Az Oldalról</a></li>
+                    <li class="nav-item" role="presentation"><a class="nav-link active" href="kapcsolat">Kapcsolat</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <main class="page contact-us-page">
+        <section class="clean-block clean-form dark">
+            <div class="container">
+                <div class="block-heading">
+                    <h2 class="text-info">Kapcsolat</h2>
+                    <p class="text-left">Az alábbi űrlapon kapcsolatba léphetsz az AlfaFérával.&nbsp;<br><br>Ha az eredeti oldal tulajdonosával (Vizkievicz András) szeretnél kapcsolatba lépni használd <a href="http://bioszfera.com/#contacts">ezt</a> az űrlapot.</p>
+                </div>
+                <form method="post" action="kapcsolat-action">
+                    <div class="form-group"><label>Név</label><input name="name" class="form-control" type="text"></div>
+                    <div class="form-group"><label>Tárgy</label><input name="subject" class="form-control" type="text"></div>
+                    <div class="form-group"><label>Email</label><input name="email" class="form-control" type="email"></div>
+                    <div class="form-group"><label>Üzenet</label><textarea name="message" class="form-control"></textarea></div>
+                    <div class="form-group"><button class="btn btn-primary btn-block" type="submit">Küldés</button></div>
+                </form>
+            </div>
+        </section>
+    </main>
+    <footer class="page-footer dark">
+        <div class="container">
+            <div class="row">
+                <div class="col-sm-3 col-xl-4">
+                    <h5>Az oldal</h5>
+                    <ul>
+                        <li><a href="/">Főoldal</a></li>
+                        <li><a href="/oldalrol">Az oldalról</a></li>
+                        <li><a href="kapcsolat">Kapcsolat</a></li>
+                        <li><a href="gyik">GYIK</a></li>
+                    </ul>
+                </div>
+                <div class="col-sm-3 col-xl-4">
+                    <h5>Jegyzetek</h5>
+                    <ul>
+                        <li><a href="jegyzetek">Jegyzetek</a></li>
+                        <li><a href="http://bioszfera.com">Bioszféra</a></li>
+                    </ul>
+                </div>
+                <div class="col-sm-3 col-xl-4">
+                    <h5>Fejlesztés</h5>
+                    <ul>
+                        <li><a href="stats">Statisztikák</a></li>
+                        <li><a href="logs">Naplózás</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="footer-copyright">
+            <p>© 2021 Alfaféra</p>
+        </div>
+    </footer>
+    <script src="assets/js/jquery.min.js"></script>
+    <script src="assets/bootstrap/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/baguettebox.js/1.10.0/baguetteBox.min.js"></script>
+    <script src="assets/js/script.min.js"></script>
+</body>
+
+</html>
