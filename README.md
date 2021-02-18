@@ -19,6 +19,9 @@ A régebbi DeltaFérá-nak egy jobb változata
  - Jegyzetek a memóriában, és sosem kerülnek file-ba
  - Szebb HTTP error oldalak
  - Final szó bespammelése mindenhova ahova csak lehet
+ - Logok elérése
+ - Github linkelése
+ - Működő release
 
 ### Felhasznált projektek
 [Pdf.js](https://mozilla.github.io/pdf.js/)
