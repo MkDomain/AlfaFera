@@ -24,8 +24,9 @@ A régebbi DeltaFérá-nak egy jobb változata
  - Működő release
 
 ### Felhasznált projektek
-[Pdf.js](https://mozilla.github.io/pdf.js/)
-[Jsoup](https://jsoup.org)
-[Apache Pdfbox](https://pdfbox.apache.org)
-[Swing PDF Renderer](https://mvnrepository.com/artifact/org.swinglabs/pdf-renderer)
-[Javalin](https://javalin.io)
+ - [Pdf.js](https://mozilla.github.io/pdf.js/)
+ - [Jsoup](https://jsoup.org)
+ - [Apache Pdfbox](https://pdfbox.apache.org)
+ - [Swing PDF Renderer](https://mvnrepository.com/artifact/org.swinglabs/pdf-renderer)
+ - [Javalin](https://javalin.io)
+ - [String similarity](https://github.com/tdebatty/java-string-similarity/)
