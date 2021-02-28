@@ -32,3 +32,4 @@ local/*
 logs/*
 popularity/*
 *.info
+config.txt

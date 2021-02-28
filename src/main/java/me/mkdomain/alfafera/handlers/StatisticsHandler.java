@@ -9,7 +9,6 @@ import org.jetbrains.annotations.NotNull;
 /**
  * A statisztikákat mutatja (/stats)
  */
-//TODO: Formázás
 public class StatisticsHandler implements Handler {
     @Override
     public void handle(@NotNull Context ctx) throws Exception {

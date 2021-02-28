@@ -1,6 +1,8 @@
 package me.mkdomain.alfafera;
 
 import io.javalin.Javalin;
+import me.mkdomain.alfafera.configuration.BasicConfiguration;
+import me.mkdomain.alfafera.configuration.Configuration;
 import me.mkdomain.alfafera.handlers.*;
 import me.mkdomain.alfafera.logging.AccessLoggerHandler;
 import me.mkdomain.alfafera.logging.ErrorLoggerHandler;
@@ -22,16 +24,25 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPOutputStream;
 
 public class Main {
 
-    private static final StatisticsManager manager = new StatisticsManager();
-    private static final List<Note> notes = new ArrayList<>();
+    public static int LOAD_THREAD_COUNT;
+    public static boolean USE_FILE_CACHE;
+    private static String ADMIN_USER;
+    private static boolean GET_IP_FROM_HEADER = false;
 
-    private static boolean getIpFromHeader = false;
-    private static Javalin app;
+    private static final StatisticsManager manager = new StatisticsManager();
+    private static final List<Note> notes = new CopyOnWriteArrayList<>();
+
+    private static ExecutorService threadPool;
+    private static Configuration configuration;
 
     private static void progressPercentage(int remain, int total) {
         String start = "[";
@@ -45,39 +56,66 @@ public class Main {
         return manager;
     }
 
-    public static void main(String[] args) throws IOException {
-        if (args.length > 0)
-            if (args.length == 1) getIpFromHeader = Boolean.parseBoolean(args[0]);
+    public static void main(String[] args) throws IOException, InterruptedException {
+        final long start = System.currentTimeMillis();
+        //Logger bekapcsolása
         Logger.init();
-        System.out.println("Alfaféra indítása...");
-        System.out.println("Jegyzetek betöltése...");
-        NoteImport.importNotes();
 
-        if (Files.exists(Paths.get("similarity.info"))) {
-            for (String readAllLine : Files.readAllLines(Paths.get("similarity.info"))) {
-                if (!readAllLine.contains("= ")) continue;
-                String key = readAllLine.split("= ")[0];
-                double value = Double.parseDouble(readAllLine.split("= ")[1]);
-                NoteStatistics.getSimilarityMap().put(key, value);
-            }
+        System.out.println("Alfaféra indítása...");
+        configuration = new BasicConfiguration();
+        configuration.load(Paths.get("config.txt"));
+        if (!configuration.contains("thread_count")) {
+            configuration.set("thread_count", String.valueOf(Runtime.getRuntime().availableProcessors()));
         }
+        if (!configuration.contains("file_cache")) {
+            configuration.set("file_cache", String.valueOf(false));
+        }
+        if (!configuration.contains("admin_user")) {
+            configuration.set("admin_user", "admin:admin");
+        }
+        if (!configuration.contains("get_ip_from_header")) {
+            configuration.set("get_ip_from_header", String.valueOf(false));
+        }
+        if (!configuration.contains("discord_webhook_url")) {
+            configuration.set("discord_webhook_url", "<URL>");
+        }
+        LOAD_THREAD_COUNT = Integer.parseInt(configuration.get("thread_count"));
+        USE_FILE_CACHE = Boolean.parseBoolean(configuration.get("file_cache"));
+        ADMIN_USER = configuration.get("admin_user");
+        GET_IP_FROM_HEADER = Boolean.parseBoolean(configuration.get("get_ip_from_header"));
+        configuration.save(Paths.get("config.txt"));
+
+        threadPool = Executors.newFixedThreadPool(Main.LOAD_THREAD_COUNT);
+        System.out.println("File információk betöltése...");
         NoteStatistics.load();
 
-        double i = 1;
-        double all = notes.size();
-        for (Note note : getNotes()) {
-            double percent = Math.max(100, i / all);
+        NoteImport.importNotes();
+        System.out.println("Jegyzetek egymáshoz való hasonlóságának számítása");
+
+        //Befejezett feladatok
+        final AtomicInteger finished = new AtomicInteger(0);
+        //Befejezett számítások
+        final AtomicInteger done = new AtomicInteger(0);
+        final double all = notes.size();
+        final double everyCalc = (all * (all - 1) / 2);
+        executeAndUpdate(getNotes().stream().map(e -> (Runnable) () -> NoteStatistics.similarity(e, false, done)).collect(Collectors.toList()), finished);
+        int current;
+        while ((current = finished.get()) != all) {
+            final double percent = Math.min(100, current / all);
             progressPercentage((int) (percent * 100), 100);
-            NoteStatistics.similarity(note, false);
-            i++;
+            System.out.print(" (" + done.get() + "/" + everyCalc + ")");
+            Thread.sleep(150);
+            if (current == all) break;
         }
         System.out.print("\n");
+
+        //Frissítő szál indítása
         new UpToDateCheckerThread().start();
         System.out.println("Jegyzetek betöltve.");
         System.out.println("Szerver indítása...");
-        long start = System.currentTimeMillis();
+        final long serverStart = System.currentTimeMillis();
         Javalin.log = new UnLoggerSLF4J();
-        app = Javalin.create()
+        Javalin.create()
                 .exception(FileNotFoundException.class, (ex, ctx) -> ctx.status(404))
                 .exception(NoSuchFileException.class, (ex, ctx) -> ctx.status(404))
                 .exception(NoSuchElementException.class, (ex, ctx) -> ctx.status(404))
@@ -87,7 +125,30 @@ public class Main {
                 .get("/oldalrol", new FileHandler("html/oldalrol.html", true))
                 .get("/kapcsolat", new FileHandler("html/kapcsolat.html", true))
                 .get("/gyik", new FileHandler("html/faq.html", true))
-                .get("stats", new StatisticsHandler())
+                .get("/stats", new StatisticsHandler())
+                .get("/logs", (ctx) -> {
+                    if (ctx.header("Authorization") == null) {
+                        ctx.header("WWW-Authenticate", "Basic realm=\"AlfaFera\"");
+                        ctx.header("HTTP/1.0 401 Unauthorized");
+                        ctx.status(401);
+                        ctx.result("Bejelentkezés szükséges.");
+                        return;
+                    }else{
+                        if (!ctx.header("Authorization").substring("Basic ".length()).equals(Base64.getEncoder().encodeToString(Main.ADMIN_USER.getBytes(StandardCharsets.UTF_8)))) {
+                            ctx.header("WWW-Authenticate", "Basic realm=\"AlfaFera\"");
+                            ctx.header("HTTP/1.0 401 Unauthorized");
+                            ctx.status(401);
+                            ctx.result("Bejelentkezés szükséges.");
+                            return;
+                        }
+                    }
+
+
+
+                    final String outText = getLogsSpecial().replace("\n", "<br>") + "<br><br><br><br><br>" + Logger.getLogs().replace("\n", "<br>");
+                    ctx.contentType("text/html; charset=utf-8");
+                    ctx.result(outText);
+                })
                 .get("/jegyzet/:name/kep", new NoteImageHandler())
                 .get("/jegyzet/:name/pdf", new NoteViewHandler())
                 .get("/jegyzet/:name/megtekintes", new BetterNoteViewHandler())
@@ -98,41 +159,25 @@ public class Main {
                 .get("/jegyzet/:name", new NoteHandler())
                 .get("assets/*", new AssetsHandler())
                 .post("/kapcsolat-action", new ContactPostHandler())
-                /*.get("/stop", ctx -> System.exit(0))*/
                 .after(ctx -> getManager().incrementServedData(Objects.nonNull(ctx.resultStream()) ? ctx.resultStream().available() : 0))
                 .after(new AccessLoggerHandler())
                 .start(8888);
-        System.out.println("A szerver elindult " + (System.currentTimeMillis() - start) + "ms alatt!");
+        System.out.println("A szerver elindult " + ((System.currentTimeMillis() - start) / 1000) + "s alatt! (ebből a szerver: " + (System.currentTimeMillis() - serverStart) + "ms)");
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            //Elérési naplózás mentése
-            StringBuilder sb = new StringBuilder();
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-            sb.append("======================").append("\n").append("Elérési napló\n").append("======================").append("\n");
-            for (AccessLoggerHandler.LogRecord access : AccessLoggerHandler.getAccesses()) {
-                sb.append(String.format("%-20s%-80s%-20s", access.getIp(), access.getUrl(), sdf.format(new Date(access.getAccessDate())))).append("\n");
+            try {
+                configuration.save(Paths.get("config.txt"));
+            } catch (IOException e) {
+                e.printStackTrace();
             }
 
-            //Hibák mentése
-            sb.append("======================").append("\n").append("Futtatási hibák\n").append("======================").append("\n");
-            for (ErrorLoggerHandler.ExceptionDumpReport report : ErrorLoggerHandler.getExceptions()) {
-                sb.append(String.format("Dátum: %-20s\nUrl: %-80s\nHiba fajtája: %-20s\nHiba üzenete: %-40s\nSütik: %-150s\nFejlécek: %-150s\nÚtvonal paraméterek: %-150s\nSession adatok: %-150s\nForm paraméterek: %-150s\nLekérési paraméterek: %-150s\n\n", sdf.format(new Date(report.getAccessDate())),
-                        report.getUrl(),
-                        report.getException().getClass().getName(),
-                        report.getException().getMessage(),
-                        "(" + report.getCookieMap().entrySet().stream().map(e -> e.getKey() + ":" + e.getValue()).collect(Collectors.joining(", ")) + ")",
-                        "(" + report.getHeaderMap().entrySet().stream().map(e -> e.getKey() + ":" + e.getValue()).collect(Collectors.joining(", ")) + ")",
-                        "(" + report.getPathParamMap().entrySet().stream().map(e -> e.getKey() + ":" + e.getValue()).collect(Collectors.joining(", ")) + ")",
-                        "(" + report.getSessionMap().entrySet().stream().map(e -> e.getKey() + ":" + e.getValue()).collect(Collectors.joining(", ")) + ")",
-                        "(" + report.getFormParamMap().entrySet().stream().map(e -> e.getKey() + ":[" + String.join(", ", e.getValue()) + "]").collect(Collectors.joining(", ")) + ")",
-                        "(" + report.getQueryParamMap().entrySet().stream().map(e -> e.getKey() + ":[" + String.join(", ", e.getValue()) + "]").collect(Collectors.joining(", ")) + ")"
-                )).append("\n");
-            }
+            //Elérési naplózás mentése
+            final String outText = (getLogsSpecial() + "\n\n\n\n\n" + Logger.getLogs()).trim();
 
             //Napló mentése
             try {
                 ByteArrayOutputStream compressedOut = new ByteArrayOutputStream();
                 GZIPOutputStream gzipOut = new GZIPOutputStream(compressedOut);
-                gzipOut.write(sb.toString().getBytes(StandardCharsets.UTF_8));
+                gzipOut.write(outText.getBytes(StandardCharsets.UTF_8));
                 gzipOut.close();
                 compressedOut.close();
                 if (!Files.exists(Paths.get("logs")))
@@ -153,11 +198,62 @@ public class Main {
         }));
     }
 
+    public static Configuration getConfiguration() {
+        return configuration;
+    }
+
     public static boolean getIpFromHeader() {
-        return getIpFromHeader;
+        return GET_IP_FROM_HEADER;
     }
 
     public static List<Note> getNotes() {
         return notes;
+    }
+
+    public static void executeAndBlock(List<Runnable> tasks) {
+        final AtomicInteger done = new AtomicInteger(0);
+        final int total = tasks.size();
+        executeAndUpdate(tasks, done);
+        while (true) {
+            if (done.get() == total) break;
+        }
+    }
+
+    public static void executeAndUpdate(List<Runnable> tasks, AtomicInteger updater) {
+        tasks.forEach(e -> threadPool.execute(() -> {
+            try {
+                e.run();
+            }catch (Exception ex) {
+                ex.printStackTrace();
+                System.err.println("Futási hiba egy külső szálon!");
+            }
+            updater.getAndIncrement();
+        }));
+    }
+
+    public static String getLogsSpecial() {
+        final StringBuilder sb = new StringBuilder();
+        final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        sb.append("======================").append("\n").append("Elérési napló\n").append("======================").append("\n");
+        for (AccessLoggerHandler.LogRecord access : AccessLoggerHandler.getAccesses()) {
+            sb.append(String.format("%-20s%-80s%-20s", access.getIp(), access.getUrl(), sdf.format(new Date(access.getAccessDate())))).append("\n");
+        }
+
+        //Hibák mentése
+        sb.append("======================").append("\n").append("Futási hibák\n").append("======================").append("\n");
+        for (ErrorLoggerHandler.ExceptionDumpReport report : ErrorLoggerHandler.getExceptions()) {
+            sb.append(String.format("Dátum: %-20s\nUrl: %-80s\nHiba fajtája: %-20s\nHiba üzenete: %-40s\nSütik: %-150s\nFejlécek: %-150s\nÚtvonal paraméterek: %-150s\nSession adatok: %-150s\nForm paraméterek: %-150s\nLekérési paraméterek: %-150s\n\n", sdf.format(new Date(report.getAccessDate())),
+                    report.getUrl(),
+                    report.getException().getClass().getName(),
+                    report.getException().getMessage(),
+                    "(" + report.getCookieMap().entrySet().stream().map(e -> e.getKey() + ":" + e.getValue()).collect(Collectors.joining(", ")) + ")",
+                    "(" + report.getHeaderMap().entrySet().stream().map(e -> e.getKey() + ":" + e.getValue()).collect(Collectors.joining(", ")) + ")",
+                    "(" + report.getPathParamMap().entrySet().stream().map(e -> e.getKey() + ":" + e.getValue()).collect(Collectors.joining(", ")) + ")",
+                    "(" + report.getSessionMap().entrySet().stream().map(e -> e.getKey() + ":" + e.getValue()).collect(Collectors.joining(", ")) + ")",
+                    "(" + report.getFormParamMap().entrySet().stream().map(e -> e.getKey() + ":[" + String.join(", ", e.getValue()) + "]").collect(Collectors.joining(", ")) + ")",
+                    "(" + report.getQueryParamMap().entrySet().stream().map(e -> e.getKey() + ":[" + String.join(", ", e.getValue()) + "]").collect(Collectors.joining(", ")) + ")"
+            )).append("\n");
+        }
+        return sb.toString();
     }
 }

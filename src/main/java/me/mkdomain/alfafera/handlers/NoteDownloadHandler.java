@@ -4,11 +4,10 @@ import io.javalin.http.Context;
 import io.javalin.http.Handler;
 import me.mkdomain.alfafera.Main;
 import me.mkdomain.alfafera.notes.Note;
+import me.mkdomain.alfafera.notes.NoteHolder;
 import me.mkdomain.alfafera.stats.NoteStatistics;
 import me.mkdomain.alfafera.utils.Utils;
 import org.jetbrains.annotations.NotNull;
-
-import java.nio.file.Files;
 
 /**
  * A jegyzetek letöltését biztosítja, nem használ cache-t
@@ -25,6 +24,6 @@ public class NoteDownloadHandler implements Handler {
         ctx.header("Pragma", " public");
         ctx.header("Content-Type", " application/octet-stream");
         NoteStatistics.addDownload(note.name(), Utils.getIp(ctx));
-        ctx.result(Files.readAllBytes(note.getFile()));
+        ctx.result(NoteHolder.getNote(note.getId(), note.getFile().getFileName().toString()));
     }
 }

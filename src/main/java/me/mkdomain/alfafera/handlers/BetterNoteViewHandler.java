@@ -12,17 +12,19 @@ import org.jetbrains.annotations.NotNull;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
+/**
+ * Az újfajta jegyzet nézegető
+ */
 public class BetterNoteViewHandler implements Handler {
 
     @Override
     public void handle(@NotNull Context ctx) throws Exception {
         ctx.contentType("text/html; charset=utf-8");
-        String def = new String(Files.readAllBytes(Paths.get("html/jegyzet-nezes.html")));
-        def = Placeholder.replace(def);
-        Note note = Main.getNotes().stream().filter(e -> e.getFile().getFileName().toString().equalsIgnoreCase(ctx.pathParam("name"))).findFirst().get();
+        final Note note = Main.getNotes().stream().filter(e -> e.getFile().getFileName().toString().equalsIgnoreCase(ctx.pathParam("name"))).findFirst().get();
         NoteStatistics.addView(note.name(), Utils.getIp(ctx));
-        def = def.replaceAll("%name%", note.name());
-        def = def.replaceAll("%local%", note.getFile().getFileName().toString());
+        final String def = Placeholder.replace(new String(Files.readAllBytes(Paths.get("html/jegyzet-nezes.html"))))
+                .replaceAll("%name%", note.name())
+                .replaceAll("%local%", note.getFile().getFileName().toString());
         ctx.result(def);
     }
 

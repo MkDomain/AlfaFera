@@ -30,21 +30,20 @@ public class NotesHandler implements Handler {
 
     @Override
     public void handle(@NotNull Context ctx) throws Exception {
-        String in = new String(Files.readAllBytes(Paths.get("html/jegyzetek.html")));
-        in = Placeholder.replace(in);
+        String in = Placeholder.replace(new String(Files.readAllBytes(Paths.get("html/jegyzetek.html"))));
+        final StringBuilder completed = new StringBuilder();
 
-        String completed = "";
         for (Note value : Popularity.getNotesByPopularityDescending()) {
-            completed += template
-                    .replaceAll("%name%", value.name())
-                    .replaceAll("%local%", value.getFile().getFileName().toString())
-                    .replaceAll("%categories%", value.categories())
-                    .replaceAll("%link%", "jegyzet/" + value.getFile().getFileName().toString())
-                    .replaceAll("%filter_categories%", value.getCategories().stream().map(Enum::name).collect(Collectors.joining(" ")))
+            completed.append(template
+                    .replace("%name%", value.name())
+                    .replace("%local%", value.getFile().getFileName().toString())
+                    .replace("%categories%", value.categories())
+                    .replace("%link%", "jegyzet/" + value.getFile().getFileName().toString())
+                    .replace("%filter_categories%", value.getCategories().stream().map(Enum::name).collect(Collectors.joining(" "))))
             ;
         }
+        in = in.replace("__ide__", completed.toString());
 
-        in = in.replace("__ide__", completed);
         ctx.contentType("text/html; charset=utf-8");
         ctx.result(in);
     }

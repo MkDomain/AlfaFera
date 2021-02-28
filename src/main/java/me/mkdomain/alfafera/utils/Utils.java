@@ -13,18 +13,19 @@ import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.plugins.jpeg.JPEGImageWriteParam;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
+import javax.xml.bind.DatatypeConverter;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
-import java.util.Base64;
+import java.util.Objects;
 
 /**
  * Pár gyakrabban használt hasznos dolgok
@@ -38,7 +39,7 @@ public class Utils {
      * @return Egy szöveg ami a méretet tartalmazza olvasható formában
      */
     public static String humanReadableByteCountBin(long bytes) {
-        long absB = bytes == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(bytes);
+        final long absB = bytes == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(bytes);
         if (absB < 1024) {
             return bytes + " B";
         }
@@ -60,37 +61,13 @@ public class Utils {
      * @throws IOException ha valami nem jött össze
      */
     public static byte[] downloadFromURL(URL url) throws IOException {
-        InputStream is = url.openConnection().getInputStream();
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        byte[] buffer = new byte[512];
+        final InputStream is = url.openConnection().getInputStream();
+        final ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        final byte[] buffer = new byte[512];
         int nRead;
         while ((nRead = is.read(buffer)) != -1) {
             bos.write(buffer, 0, nRead);
         }
-        return bos.toByteArray();
-    }
-
-    /**
-     * Letölt egy URL-ről, de közben mutatja, hogy hány százaléknál tart
-     *
-     * @param url Az URL
-     * @return A bináris reprezentációja a letöltött adatnak
-     * @throws IOException ha valami nem jött össze
-     */
-    public static byte[] downloadFromURLWithMonitoringBar(URL url) throws IOException {
-        InputStream is = url.openConnection().getInputStream();
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        double all = Integer.parseInt(url.openConnection().getHeaderField("content-length"));
-        byte[] buffer = new byte[512];
-        int nRead;
-        double readTotal = 0;
-        while ((nRead = is.read(buffer)) != -1) {
-            bos.write(buffer, 0, nRead);
-            readTotal += nRead;
-            double percent = Math.ceil((readTotal / all) * 100) / 100;
-            progressPercentage((int) (percent * 100), 100);
-        }
-        System.out.println();
         return bos.toByteArray();
     }
 
@@ -100,11 +77,11 @@ public class Utils {
      * @param file A PDF fájl
      * @return A szöveg
      */
-    public static String getTextFromPdf(Path file) {
+    public static String getTextFromPdf(byte[] file) {
         try {
-            PDDocument pdDoc = PDDocument.load(file.toFile());
-            PDFTextStripper pdfStripper = new PDFTextStripper();
-            String parsedText = pdfStripper.getText(pdDoc);
+            final PDDocument pdDoc = PDDocument.load(file);
+            final PDFTextStripper pdfStripper = new PDFTextStripper();
+            final String parsedText = pdfStripper.getText(pdDoc);
             pdDoc.close();
             return parsedText.replaceAll("[^A-Za-z0-9. ]+", "");
         } catch (Exception ex) {
@@ -116,32 +93,29 @@ public class Utils {
     /**
      * Egy PDF fáj első oldalából csinál képet
      *
-     * @param file A fájl
+     * @param data A fájl
      * @return A kép JPEG formátumban
      * @throws IOException ha valami nem jött össze
      */
-    public static byte[] renderPdfThumbnailImage(Path file) throws IOException {
+    public static byte[] renderPdfThumbnailImage(byte[] data) throws IOException {
         //PDF fájl kiolvasása
-        File pdfFile = file.toFile();
-        RandomAccessFile raf = new RandomAccessFile(pdfFile, "r");
-        FileChannel channel = raf.getChannel();
-        ByteBuffer buf = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
+        final ByteBuffer buf = ByteBuffer.wrap(data);
 
         //Kép elkészítése
-        PDFFile pdf = new PDFFile(buf);
-        PDFPage page = pdf.getPage(0);
-        Rectangle rect = new Rectangle(0, 0, (int) page.getBBox().getWidth(), (int) page.getBBox().getHeight());
-        BufferedImage bufferedImage = new BufferedImage(rect.width, rect.height, BufferedImage.TYPE_INT_RGB);
-        Image image = page.getImage(rect.width, rect.height, rect, null, true, true);
-        Graphics2D bufImageGraphics = bufferedImage.createGraphics();
+        final PDFFile pdf = new PDFFile(buf);
+        final PDFPage page = pdf.getPage(0);
+        final Rectangle rect = new Rectangle(0, 0, (int) page.getBBox().getWidth(), (int) page.getBBox().getHeight());
+        final BufferedImage bufferedImage = new BufferedImage(rect.width, rect.height, BufferedImage.TYPE_INT_RGB);
+        final Image image = page.getImage(rect.width, rect.height, rect, null, true, true);
+        final Graphics2D bufImageGraphics = bufferedImage.createGraphics();
         bufImageGraphics.drawImage(image, 0, 0, null);
 
         //Kép mentése 60%-os JPEG tömörítéssel
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        JPEGImageWriteParam jpegParams = new JPEGImageWriteParam(null);
+        final ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        final JPEGImageWriteParam jpegParams = new JPEGImageWriteParam(null);
         jpegParams.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
         jpegParams.setCompressionQuality(0.6f);
-        ImageWriter writer = ImageIO.getImageWritersByFormatName("jpg").next();
+        final ImageWriter writer = ImageIO.getImageWritersByFormatName("jpg").next();
         writer.setOutput(new MemoryCacheImageOutputStream(bos));
         writer.write(null, new IIOImage(bufferedImage, null, null), jpegParams);
 
@@ -153,36 +127,37 @@ public class Utils {
      *
      * @param remain A kitöltés mértéke
      * @param total  A kitöltött hossz
+     * @param prefix A prefix ami minden sor előtt szerepel
      */
-    private static void progressPercentage(int remain, int total) {
+    private static void progressPercentage(int remain, int total, String prefix) {
         String start = "[";
         for (int i = 0; i < total; i++) {
             start += remain <= i ? "-" : "=";
         }
-        System.out.print("\r" + start + "]");
+        System.out.print("\r" + prefix + start + "]");
     }
 
     /**
-     * MD5 hash-t hajt végre
+     * SHA-512 hash-t hajt végre
      *
      * @param s A bemeneti szöveg
-     * @return Az MD5 hash Base64-ben enkódolva
+     * @return Az SHA-512 hash hex-ben enkódolva
      */
-    public static String md5(String s) {
-        return md5(s.getBytes(StandardCharsets.UTF_8));
+    public static String sha512(String s) {
+        return sha512(s.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
-     * MD5 hash-t hajt végre
+     * SHA-512 hash-t hajt végre
      *
      * @param s A bemeneti adat
-     * @return Az MD5 hash Base64-ben enkódolva
+     * @return Az SHA-512 hash hex-ben enkódolva
      */
-    public static String md5(byte[] s) {
+    public static String sha512(byte[] s) {
         try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
+            final MessageDigest md = MessageDigest.getInstance("SHA-512");
             md.update(s);
-            return Base64.getEncoder().encodeToString(s);
+            return DatatypeConverter.printHexBinary(md.digest());
         } catch (Exception ex) {
             ex.printStackTrace();
         }
@@ -212,6 +187,28 @@ public class Utils {
      */
     public static String getIp(Context ctx) {
         return Main.getIpFromHeader() ? ctx.header("X-Real-IP") : ctx.ip();
+    }
+
+    public static <T> double listSimilarity(java.util.List<T> first, java.util.List<T> second) {
+        Objects.requireNonNull(first);
+        Objects.requireNonNull(second);
+        if (first.equals(second)) return 1;
+        if (first.isEmpty() && second.isEmpty()) return 1;
+        double matches = 0;
+        int i = 0;
+        if (first.size() >= second.size()) {
+            for (T t : second) {
+                if (t.equals(first.get(i))) matches++;
+                i++;
+            }
+            return matches / first.size();
+        } else {
+            for (T t : first) {
+                if (t.equals(second.get(i))) matches++;
+                i++;
+            }
+            return matches / second.size();
+        }
     }
 
 }

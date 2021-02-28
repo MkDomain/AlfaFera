@@ -28,7 +28,7 @@ public class AssetsHandler implements Handler {
             ctx.result(res);
             return;
         }
-        Path path = Paths.get("html/assets/" + ctx.splat(0));
+        final Path path = Paths.get("html/assets/" + ctx.splat(0));
         ctx.contentType(Files.probeContentType(path) + "; charset=utf-8");
         final byte[] res = Files.readAllBytes(path);
         cache.put(ctx.splat(0), new Wrapper(res, Files.probeContentType(path)));
@@ -43,8 +43,8 @@ public class AssetsHandler implements Handler {
      */
     static class Wrapper {
 
-        byte[] value;
-        String type;
+        final byte[] value;
+        final String type;
 
         public Wrapper(byte[] value, String type) {
             this.value = value;

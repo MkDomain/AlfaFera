@@ -11,11 +11,11 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.AbstractMap;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 /**
  * Az eredeti oldaról importálja a jegyzeteket
@@ -28,11 +28,12 @@ public class NoteImport {
      */
     public static void importNotes() {
         try {
-            HashMap<String, AbstractMap.SimpleEntry<String, List<NoteCategory>>> realNameLinkCategory = new HashMap<>();
+            System.out.print("[" + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + "]  " + "INFO" + "   " + "Jegyzetek lekérése az eredeti oldalról...");
+            final HashMap<String, AbstractMap.SimpleEntry<String, List<NoteCategory>>> realNameLinkCategory = new HashMap<>();
             //Section megtalálása
-            Document document = Jsoup.connect("http://bioszfera.com").get();
-            Element sectionEmelt = document.getElementById("emeltszintujegyzetek");
-            Element emeltLista = sectionEmelt.getElementsByTag("ul").get(0);
+            final Document document = Jsoup.connect("http://bioszfera.com").get();
+            final Element sectionEmelt = document.getElementById("emeltszintujegyzetek");
+            final Element emeltLista = sectionEmelt.getElementsByTag("ul").get(0);
             for (Element li : emeltLista.getElementsByTag("a")) {
                 //Ha nincs href akkor az nem jegyzet
                 if (li.hasAttr("href")) {
@@ -55,8 +56,8 @@ public class NoteImport {
                 }
             }
 
-            Element sectionAlap = document.getElementById("alaporasjegyzetek");
-            Element alapLista = sectionAlap.getElementsByTag("ul").get(0);
+            final Element sectionAlap = document.getElementById("alaporasjegyzetek");
+            final Element alapLista = sectionAlap.getElementsByTag("ul").get(0);
             for (Element li : alapLista.getElementsByTag("a")) {
                 //Ha nincs href akkor az nem jegyzet
                 if (li.hasAttr("href")) {
@@ -78,27 +79,25 @@ public class NoteImport {
                     }
                 }
             }
+            System.out.print("\r[" + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + "]  " + "INFO" + "   " + "Jegyzetek lekérve\n");
+            System.out.print("[" + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + "]  " + "INFO" + "   " + "Hibás jegyzetek kiszűrése...");
+            final int before = realNameLinkCategory.size();
             //Nem létező jegyzeteket nem töltünk be
-            realNameLinkCategory.entrySet().removeIf(e -> {
+            List<String> keysToRemove = new CopyOnWriteArrayList<>();
+            Main.executeAndBlock(realNameLinkCategory.entrySet().stream().map(e -> (Runnable) () -> {
                 try {
-                    if (!Utils.linkExists(new URL(e.getValue().getKey()))) return true;
-                } catch (MalformedURLException ex) {
-                    ex.printStackTrace();
+                    if (!Utils.linkExists(new URL(e.getValue().getKey()))) keysToRemove.add(e.getKey());
+                } catch (MalformedURLException malformedURLException) {
+                    throw new RuntimeException(malformedURLException);
                 }
-                return false;
-            });
+            }).collect(Collectors.toList()));
+            keysToRemove.forEach(realNameLinkCategory::remove);
+            System.out.print("\r[" + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + "]  " + "INFO" + "   " + "Kiszűrve " + (before - realNameLinkCategory.size()) + "db jegyzet\n");
+            System.out.println("Jegyzetek betöltése (" + realNameLinkCategory.size() + ")");
+            System.out.println("=======================================================================");
 
             //A létező jegyzetek betöltése
-            AtomicInteger i = new AtomicInteger(1);
-            double all = realNameLinkCategory.size();
-            realNameLinkCategory.forEach((k, v) -> {
-                double percent = i.get() / all;
-                progressPercentage((int) (percent * 100), 100);
-
-                Main.getNotes().add(new Note(v.getKey(), v.getValue(), k));
-                i.getAndIncrement();
-            });
-            System.out.print("\n");
+            Main.executeAndBlock(realNameLinkCategory.entrySet().stream().map((e) -> (Runnable) () -> Main.getNotes().add(new Note(e.getValue().getKey(), e.getValue().getValue(), e.getKey()))).collect(Collectors.toList()));
         } catch (Exception ex) {
             ex.printStackTrace();
         }
@@ -107,14 +106,6 @@ public class NoteImport {
     private static String link(Element element) throws UnsupportedEncodingException {
         //Linkek enkódolása
         return URLEncoder.encode(element.attr("href"), StandardCharsets.UTF_8.name()).replace("%2F", "/").replace("%3A", ":");
-    }
-
-    private static void progressPercentage(int remain, int total) {
-        String start = "[";
-        for (int i = 0; i < total; i++) {
-            start += remain <= i ? "-" : "=";
-        }
-        System.out.print("\r" + start + "]");
     }
 
 }

@@ -15,12 +15,7 @@ A régebbi DeltaFérá-nak egy jobb változata
  - Próbálj a gyorsaságra törekedni
  
 ### Tervezett dolgok amiket hozzá kéne adni:
- - Async betöltés: gyorsabb
- - Jegyzetek a memóriában, és sosem kerülnek file-ba
  - Szebb HTTP error oldalak
- - Final szó bespammelése mindenhova ahova csak lehet
- - Logok elérése
- - Github linkelése
  - Működő release
 
 ### Felhasznált projektek

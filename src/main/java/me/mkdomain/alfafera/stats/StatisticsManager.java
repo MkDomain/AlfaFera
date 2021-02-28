@@ -16,7 +16,7 @@ public class StatisticsManager {
         try {
             //Statisztikák betöltése (ha van honnan)
             if (Files.exists(Paths.get("statistics.info"))) {
-                DataInputStream in = new DataInputStream(new FileInputStream("statistics.info"));
+                final DataInputStream in = new DataInputStream(new FileInputStream("statistics.info"));
                 servedData = in.readLong();
                 cachedData = in.readLong();
             }
@@ -31,9 +31,9 @@ public class StatisticsManager {
      */
     public void save() {
         try {
-            File out = new File("statistics.info");
-            if (!out.exists()) out.createNewFile();
-            DataOutputStream dataOut = new DataOutputStream(new FileOutputStream(out));
+            final File out = new File("statistics.info");
+            if (!out.exists()) if (!out.createNewFile()) throw new IOException("Nem készült fájl");
+            final DataOutputStream dataOut = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(out)));
             dataOut.writeLong(servedData);
             dataOut.writeLong(cachedData);
         } catch (Exception ex) {

@@ -3,7 +3,8 @@ package me.mkdomain.alfafera.utils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.PrintStream;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -12,10 +13,13 @@ import java.util.Date;
  */
 public class Logger extends PrintStream {
 
+    private static final ByteArrayOutputStream memory = new ByteArrayOutputStream();
+
     private final String type;
     private final String prefix;
+
     public Logger(String type, String prefix) {
-        super(System.out);
+        super(new DoubleStream(System.out, memory));
         this.type = type;
         this.prefix = prefix;
     }
@@ -23,6 +27,15 @@ public class Logger extends PrintStream {
     public static void init() {
         System.setOut(new Logger("INFO", ""));
         System.setErr(new Logger("ERROR", "\u001B[31m"));
+    }
+
+    public static String getLogs() {
+        try {
+            return memory.toString(StandardCharsets.UTF_8.name()).replace("\u001B[31m", "").replace("\u001B[0m", "");
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        return "";
     }
 
     @Override
@@ -122,5 +135,46 @@ public class Logger extends PrintStream {
     @Override
     public void println(@Nullable Object x) {
         super.println(prefix + "[" + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + "]  " + type + "   " + x + "\u001B[0m");
+    }
+
+    static class DoubleStream extends OutputStream{
+
+        private final OutputStream first;
+        private final OutputStream second;
+
+        public DoubleStream(OutputStream first, OutputStream second) {
+            this.first = first;
+            this.second = second;
+        }
+
+        @Override
+        public void write(int b) throws IOException {
+            first.write(b);
+            second.write(b);
+        }
+
+        @Override
+        public void write(@NotNull byte[] b, int off, int len) throws IOException {
+            first.write(b, off, len);
+            second.write(b, off, len);
+        }
+
+        @Override
+        public void write(@NotNull byte[] b) throws IOException {
+            first.write(b);
+            second.write(b);
+        }
+
+        @Override
+        public void flush() throws IOException {
+            first.flush();
+            second.flush();
+        }
+
+        @Override
+        public void close() throws IOException {
+            first.close();
+            second.close();
+        }
     }
 }

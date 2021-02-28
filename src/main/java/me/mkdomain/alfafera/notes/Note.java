@@ -6,10 +6,8 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.net.URLDecoder;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -18,14 +16,17 @@ import java.util.stream.Collectors;
  */
 public class Note {
 
+    private static int ids = 0;
+
     private final String link;
     private final List<NoteCategory> categories;
     private final String realName;
     private final Path file;
+    private final int id;
     private byte[] image;
 
     /**
-     * Egy adott linkbpl csinál helyi jegyzetetet
+     * Egy adott linkből csinál helyi jegyzetetet
      *
      * @param link A link
      */
@@ -40,43 +41,24 @@ public class Note {
             e.printStackTrace();
         }
         this.file = Paths.get(("local/" + arr[arr.length - 1]).replace("+", " "));
+        this.id = ids;
+        ids++;
+        load();
+    }
 
-        //Nincs meg a gépen a jegyzet letöltve
-        if (!Files.exists(file)) {
-            try {
-                Files.createDirectory(file.getParent());
-            } catch (IOException e) {
-            }
-            try {
-                System.out.println("\nJegyzet letöltése... [" + link + "]");
-                Files.write(file, Utils.downloadFromURLWithMonitoringBar(new URL(link)), StandardOpenOption.CREATE);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+    private void load() {
+        //Jegyzet betöltése a memóriába
         try {
-            //Nincsen a jegyzetnek előnézete
-            Path localImage = Paths.get("local/preview/" + file.getFileName().toString().substring(0, file.getFileName().toString().length() - 4) + ".jpg");
-            if (!Files.exists(localImage)) {
-                try {
-                    Files.createDirectory(Paths.get("local/preview"));
-                } catch (Exception ignored) {
-                }
-                this.image = Utils.renderPdfThumbnailImage(file);
-                Files.write(localImage, this.image, StandardOpenOption.CREATE);
-            } else {
-                this.image = Files.readAllBytes(localImage);
+            boolean downloaded = false;
+            if (NoteHolder.needDownload(this.id, file.getFileName().toString())) {
+                NoteHolder.addNote(this.id, Utils.downloadFromURL(new URL(link)), file.getFileName().toString());
+                downloaded = true;
             }
+            this.image = Utils.renderPdfThumbnailImage(NoteHolder.getNote(this.id, this.file.getFileName().toString()));
+            System.out.println("Jegyzet betöltve [" + realName + "]" + (downloaded ? " (letöltve)" : ""));
         } catch (Exception ex) {
             ex.printStackTrace();
         }
-    }
-
-    /**
-     * @return Megadja a helyi PDF fájlt
-     */
-    public Path getFile() {
-        return file;
     }
 
     /**
@@ -106,8 +88,7 @@ public class Note {
      * @throws IOException ha valami nem jött össze
      */
     public void updateImage() throws IOException {
-        this.image = Utils.renderPdfThumbnailImage(file);
-        Files.write(Paths.get("local/preview/" + file.getFileName().toString().substring(0, file.getFileName().toString().length() - 4) + ".jpg"), this.image, StandardOpenOption.CREATE);
+        this.image = Utils.renderPdfThumbnailImage(NoteHolder.getNote(this.id, this.file.getFileName().toString()));
     }
 
     /**
@@ -122,5 +103,13 @@ public class Note {
      */
     public List<NoteCategory> getCategories() {
         return categories;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public Path getFile() {
+        return file;
     }
 }

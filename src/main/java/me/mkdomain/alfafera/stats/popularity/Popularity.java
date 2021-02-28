@@ -3,6 +3,7 @@ package me.mkdomain.alfafera.stats.popularity;
 import me.mkdomain.alfafera.Main;
 import me.mkdomain.alfafera.notes.Note;
 import me.mkdomain.alfafera.stats.NoteStatistics;
+import me.mkdomain.alfafera.utils.Utils;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -28,15 +29,15 @@ public class Popularity {
         if (init) return;
         new Thread(() -> {
             while (true) {
-                StringBuilder sb = new StringBuilder();
+                final StringBuilder sb = new StringBuilder();
                 for (Note note : Main.getNotes()) {
-                    double points = getPont(note.name());
+                    final double points = getPont(note.name());
                     sb.append(note.name()).append(",").append(points).append("\n");
                 }
                 try {
-                    ByteArrayOutputStream compressedOut = new ByteArrayOutputStream();
-                    GZIPOutputStream gzipOut = new GZIPOutputStream(compressedOut);
-                    gzipOut.write(sb.toString().getBytes(StandardCharsets.UTF_8));
+                    final ByteArrayOutputStream compressedOut = new ByteArrayOutputStream();
+                    final GZIPOutputStream gzipOut = new GZIPOutputStream(compressedOut);
+                    gzipOut.write(sb.toString().getBytes(StandardCharsets.ISO_8859_1));
                     gzipOut.close();
                     compressedOut.close();
                     if (!Files.exists(Paths.get("popularity")))
@@ -59,7 +60,7 @@ public class Popularity {
      */
     public static double getPont(String name) {
         init();
-        return (NoteStatistics.getPoints(name) * (((NoteStatistics.getDownloads(name) + 1) * (NoteStatistics.getViews(name) + 1)) * 0.2));
+        return Math.max(NoteStatistics.getPoints(name), 1) * Math.max(NoteStatistics.getDownloads(name), 1) * Math.max(NoteStatistics.getViews(name), 1);
     }
 
     /**
@@ -74,6 +75,41 @@ public class Popularity {
     private static double getDistanceTwoDimensions(double first_x, double first_y, double second_x, double second_y) {
         init();
         return Math.sqrt(Math.pow(Math.abs(first_x - second_x), 2) + Math.pow(Math.abs(first_y - second_y), 2));
+    }
+
+    /**
+     * Megadja két pont távolságát a 3D-s euklédeszi térben
+     *
+     * @param first_x  Az első pont x kordinátája
+     * @param first_y  Az első pont y kordinátája
+     * @param first_z  Az első pont z kordinátája
+     * @param second_x A második pont x kordinátája
+     * @param second_y A második pont y kordinátája
+     * @param second_z A második pont z kordinátája
+     * @return A távolság
+     */
+    private static double getDistanceThreeDimensions(double first_x, double first_y, double first_z, double second_x, double second_y, double second_z) {
+        init();
+        return Math.sqrt(Math.pow(Math.abs(first_x - second_x), 2) + Math.pow(Math.abs(first_y - second_y), 2) + Math.pow(Math.abs(first_z - second_z), 2));
+    }
+
+    //mindent 0 és 1 közé transzponál
+    private static double smoothDistance(double first_x, double first_y, double first_z, double second_x, double second_y, double second_z) {
+        init();
+        double x_diff = Math.abs(first_x - second_x);
+        double y_diff = Math.abs(first_y - second_y);
+        double z_diff = Math.abs(first_z - second_z);
+        if (x_diff > 1) {
+            x_diff = 1 / x_diff;
+
+        }
+        if (y_diff > 1) {
+            y_diff = 1 / y_diff;
+        }
+        if (z_diff > 1) {
+            z_diff = 1 / z_diff;
+        }
+        return Math.sqrt(Math.pow(x_diff, 2) + Math.pow(y_diff, 2) + Math.pow(z_diff, 2));
     }
 
     /**
@@ -112,10 +148,10 @@ public class Popularity {
         double inPoints = getPont(note.name());
         return Main.getNotes().stream()
                 .filter(e -> !e.name().equalsIgnoreCase(note.name()))
-                .map(e -> new NearestNeighborsResult<>(e, getDistanceTwoDimensions(
-                        inPoints, 1 / 2,
-                        getPont(e.name()), NoteStatistics.getSimilarity(note.name(), e.name()) / (note.getCategories().get(1).equals(e.getCategories().get(1)) ? 2 : 1)
-                )))
+                .map(e -> new NearestNeighborsResult<>(e, smoothDistance(
+                        inPoints, 1, 1,
+                        getPont(e.name()), NoteStatistics.getSimilarity(note.name(), e.name()), Utils.listSimilarity(note.getCategories(), e.getCategories()))
+                ))
                 .sorted(Comparator.comparingDouble(NearestNeighborsResult::getDistance))
                 .limit(3)
                 .collect(Collectors.toList());

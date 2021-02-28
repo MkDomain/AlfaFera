@@ -16,8 +16,7 @@ public class IndexHandler implements Handler {
     @Override
     public void handle(@NotNull Context ctx) throws Exception {
         ctx.contentType("text/html; charset=utf-8");
-        String def = new String(Files.readAllBytes(Paths.get("html/index.html")));
-        def = Placeholder.replace(def);
+        final String def = Placeholder.replace(new String(Files.readAllBytes(Paths.get("html/index.html"))));
         ctx.result(def);
     }
 }

@@ -23,7 +23,7 @@ public class Placeholder {
     public static String replace(String context) {
         String ret = context;
         for (PlaceholderProvider replacer : replacer) {
-            ret = ret.replaceAll("%" + replacer.name() + "%", replacer.replace());
+            ret = ret.replace("%" + replacer.name() + "%", replacer.replace());
         }
         return ret;
     }

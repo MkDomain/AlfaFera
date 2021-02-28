@@ -23,49 +23,44 @@ public class NoteHandler implements Handler {
 
     @Override
     public void handle(@NotNull Context ctx) throws Exception {
-        String in = new String(Files.readAllBytes(Paths.get("html/jegyzet.html")));
-        in = Placeholder.replace(in);
-
         //Jegyzet megkeresése
         Optional<Note> optionalJegyzet = Main.getNotes().stream().filter(e -> e.getFile().getFileName().toString().equalsIgnoreCase(ctx.pathParam("name"))).findFirst();
-
         if (!optionalJegyzet.isPresent()) {
             //A jegyzet nem létezik (404-es kód)
             ctx.status(404);
             return;
         }
-
         Note note = optionalJegyzet.get();
-
-        //Jegyzet adatainak betöltése
-        in = in.replaceAll("%name%", note.name());
-        in = in.replaceAll("%categories%", note.categories());
-        in = in.replaceAll("%local%", note.getFile().getFileName().toString());
 
         //Népszerűség: pont hozzáadása
         NoteStatistics.addPoints(note.name(), Utils.getIp(ctx));
 
-        //Statisztikák betöltése
-        in = in.replace("%megtekintesek%", String.valueOf(NoteStatistics.getViews(note.name())));
-        in = in.replace("%letoltesek%", String.valueOf(NoteStatistics.getDownloads(note.name())));
-        in = in.replace("%osszpont%", String.valueOf(NoteStatistics.getPoints(note.name())));
-        in = in.replace("%nsza_pont%", String.valueOf(Popularity.getPont(note.name())));
-
-
         //Hasonló jegyzetek mutatása
         List<NearestNeighborsResult<Note>> nearest = Popularity.getNearestNeighbors(note);
 
-        in = in.replace("%local_1%", nearest.get(0).getResult().getFile().getFileName().toString());
-        in = in.replace("%local_2%", nearest.get(1).getResult().getFile().getFileName().toString());
-        in = in.replace("%local_3%", nearest.get(2).getResult().getFile().getFileName().toString());
+        final String in = Placeholder.replace(new String(Files.readAllBytes(Paths.get("html/jegyzet.html"))))
+                //Jegyzet adatainak betöltése
+                .replaceAll("%name%", note.name())
+                .replaceAll("%categories%", note.categories())
+                .replaceAll("%local%", note.getFile().getFileName().toString())
+                //Statisztikák betöltése
+                .replace("%megtekintesek%", String.valueOf(NoteStatistics.getViews(note.name())))
+                .replace("%letoltesek%", String.valueOf(NoteStatistics.getDownloads(note.name())))
+                .replace("%osszpont%", String.valueOf(NoteStatistics.getPoints(note.name())))
+                .replace("%nsza_pont%", String.valueOf(Popularity.getPont(note.name())))
 
-        in = in.replace("%note_1%", nearest.get(0).getResult().name());
-        in = in.replace("%note_2%", nearest.get(1).getResult().name());
-        in = in.replace("%note_3%", nearest.get(2).getResult().name());
+                //Hasonló jegyzetek
+                .replace("%local_1%", nearest.get(0).getResult().getFile().getFileName().toString())
+                .replace("%local_2%", nearest.get(1).getResult().getFile().getFileName().toString())
+                .replace("%local_3%", nearest.get(2).getResult().getFile().getFileName().toString())
 
-        in = in.replace("%distance_1%", Double.toString(nearest.get(0).getDistance()));
-        in = in.replace("%distance_2%", Double.toString(nearest.get(1).getDistance()));
-        in = in.replace("%distance_3%", Double.toString(nearest.get(2).getDistance()));
+                .replace("%note_1%", nearest.get(0).getResult().name())
+                .replace("%note_2%", nearest.get(1).getResult().name())
+                .replace("%note_3%", nearest.get(2).getResult().name())
+
+                .replace("%distance_1%", Double.toString(nearest.get(0).getDistance()))
+                .replace("%distance_2%", Double.toString(nearest.get(1).getDistance()))
+                .replace("%distance_3%", Double.toString(nearest.get(2).getDistance()));
 
         ctx.contentType("text/html; charset=utf-8");
         ctx.result(in);

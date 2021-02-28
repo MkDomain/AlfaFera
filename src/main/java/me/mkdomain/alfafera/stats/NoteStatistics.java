@@ -1,8 +1,9 @@
 package me.mkdomain.alfafera.stats;
 
-import info.debatty.java.stringsimilarity.Cosine;
+import me.mkdomain.alfafera.utils.Levenshtein;
 import me.mkdomain.alfafera.Main;
 import me.mkdomain.alfafera.notes.Note;
+import me.mkdomain.alfafera.notes.NoteHolder;
 import me.mkdomain.alfafera.utils.Utils;
 
 import java.io.IOException;
@@ -13,6 +14,8 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A jegyzetek statisztikáját tárolja
@@ -26,17 +29,20 @@ public class NoteStatistics {
     private static final HashMap<String, Long> next = new HashMap<>();
     private static final HashMap<String, Long> nextView = new HashMap<>();
     private static final HashMap<String, Long> nextDownload = new HashMap<>();
-    private static final HashMap<String, Double> similarity = new HashMap<>();
+    private static final ConcurrentHashMap<String, Double> similarity = new ConcurrentHashMap<>();
+
+    private static String getId(String first, String second) {
+        return similarity.containsKey(Utils.sha512(first + "-" + second)) ? Utils.sha512(first + "-" + second) : similarity.containsKey(Utils.sha512(second + "-" + first)) ? Utils.sha512(second + "-" + first) : Utils.sha512(first + "-" + second);
+    }
 
     /**
      * Beállítja két jegyzet hasonlóságát
      *
-     * @param first  Az első jegyzet neve
-     * @param second A második jegyzet neve
+     * @param id     A közös id
      * @param points A hasonlóság százalékban
      */
-    public static void setSimilarity(String first, String second, double points) {
-        similarity.put(first + "-" + second, points);
+    public static void setSimilarity(String id, double points) {
+        similarity.put(id, points);
     }
 
     /**
@@ -45,35 +51,46 @@ public class NoteStatistics {
      * @param note        A jegyzet
      * @param ignoreCache A cache ignorálása
      */
-    public static void similarity(Note note, boolean ignoreCache) {
+    public static void similarity(Note note, boolean ignoreCache, AtomicInteger updater) {
         List<Note> others = new ArrayList<>(Main.getNotes());
         others.remove(note);
-        String inText = Utils.getTextFromPdf(note.getFile());
+        final String inText = Utils.getTextFromPdf(NoteHolder.getNote(note.getId(), note.getFile().getFileName().toString()));
         for (Note other : others) {
+            final String id = getId(note.name(), other.name());
             if (ignoreCache) {
-                similarity.remove(note.name() + "-" + other.name());
-                similarity.remove(other.name() + "-" + note.name());
+                similarity.remove(id);
             }
-            if (!ignoreCache && (similarity.containsKey(note.name() + "-" + other.name()) || similarity.containsKey(other.name() + "-" + note.name())))
+            if (!ignoreCache && similarity.containsKey(id))
                 continue;
-            String otherText = Utils.getTextFromPdf(other.getFile());
-            double point = new Cosine().similarity(inText, otherText);
-            setSimilarity(note.name(), other.name(), point);
+            final String otherText = Utils.getTextFromPdf(NoteHolder.getNote(other.getId(), note.getFile().getFileName().toString()));
+            final double point = 1 - (Levenshtein.distance(inText, otherText, Long.MAX_VALUE) / Math.max(inText.length(), otherText.length()));
+            setSimilarity(id, point);
+            updater.getAndIncrement();
+            save2();
         }
 
-        StringBuilder sb = new StringBuilder();
-        similarity.forEach((k, v) -> sb.append(k).append("= ").append(v).append("\n"));
-        try {
-            Files.write(Paths.get("similarity.info"), sb.toString().getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+
+    }
+
+    /**
+     * A hasonlóságot menti el
+     */
+    private static void save2() {
+        new Thread(() -> {
+            final StringBuilder sb = new StringBuilder();
+            similarity.forEach((k, v) -> sb.append(k).append("= ").append(v).append("\n"));
+            try {
+                Files.write(Paths.get("similarity.info"), sb.toString().getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
     }
 
     /**
      * @return Megadja azt a Map-et amiben a hasonlóság található
      */
-    public static HashMap<String, Double> getSimilarityMap() {
+    public static ConcurrentHashMap<String, Double> getSimilarityMap() {
         return similarity;
     }
 
@@ -85,8 +102,7 @@ public class NoteStatistics {
      * @return A hasonlóság százalékban
      */
     public static double getSimilarity(String first, String second) {
-        if (similarity.containsKey(first + "-" + second)) return similarity.get(first + "-" + second);
-        return similarity.get(second + "-" + first);
+        return similarity.get(getId(second, first));
     }
 
     /**
@@ -96,9 +112,9 @@ public class NoteStatistics {
      * @param ip   A kliens ip címe
      */
     public static void addPoints(String name, String ip) {
-        if (next.getOrDefault(Utils.md5(ip + name), (long) 0) > System.currentTimeMillis()) return;
+        if (next.getOrDefault(Utils.sha512(ip + name), (long) 0) > System.currentTimeMillis()) return;
         points.put(name, points.getOrDefault(name, 0) + 1);
-        next.put(Utils.md5(ip + name), System.currentTimeMillis() + 8 * 60 * 60 * 1000);
+        next.put(Utils.sha512(ip + name), System.currentTimeMillis() + 8 * 60 * 60 * 1000);
     }
 
     /**
@@ -119,9 +135,9 @@ public class NoteStatistics {
      * @param ip   A kliens ip címe
      */
     public static void addView(String name, String ip) {
-        if (nextView.getOrDefault(Utils.md5(ip + name), (long) 0) > System.currentTimeMillis()) return;
+        if (nextView.getOrDefault(Utils.sha512(ip + name), (long) 0) > System.currentTimeMillis()) return;
         views.put(name, views.getOrDefault(name, 0) + 1);
-        nextView.put(Utils.md5(ip + name), System.currentTimeMillis() + 30 * 60 * 1000);
+        nextView.put(Utils.sha512(ip + name), System.currentTimeMillis() + 30 * 60 * 1000);
     }
 
     /**
@@ -142,9 +158,9 @@ public class NoteStatistics {
      * @param ip   A kliens ip címe
      */
     public static void addDownload(String name, String ip) {
-        if (nextDownload.getOrDefault(Utils.md5(ip + name), (long) 0) > System.currentTimeMillis()) return;
+        if (nextDownload.getOrDefault(Utils.sha512(ip + name), (long) 0) > System.currentTimeMillis()) return;
         downloads.put(name, downloads.getOrDefault(name, 0) + 1);
-        nextDownload.put(Utils.md5(ip + name), System.currentTimeMillis() + 30 * 60 * 1000);
+        nextDownload.put(Utils.sha512(ip + name), System.currentTimeMillis() + 30 * 60 * 1000);
     }
 
     /**
@@ -179,15 +195,23 @@ public class NoteStatistics {
     public static void load() throws IOException {
         if (!Files.exists(Paths.get("note_statistics.info"))) return;
         for (String readAllLine : Files.readAllLines(Paths.get("note_statistics.info"))) {
-            String name = readAllLine.split("= ")[0];
-            String raw = readAllLine.split("= ")[1];
+            final String name = readAllLine.split("= ")[0];
+            final String raw = readAllLine.split("= ")[1];
 
-            int views = Integer.parseInt(raw.split(":")[1]);
-            int downloads = Integer.parseInt(raw.split(":")[1]);
-            int points = Integer.parseInt(raw.split(":")[1]);
+            final int views = Integer.parseInt(raw.split(":")[1]);
+            final int downloads = Integer.parseInt(raw.split(":")[1]);
+            final int points = Integer.parseInt(raw.split(":")[1]);
             if (views > 0) NoteStatistics.views.put(name, views);
             if (downloads > 0) NoteStatistics.downloads.put(name, downloads);
             if (points > 0) NoteStatistics.points.put(name, points);
+        }
+        if (Files.exists(Paths.get("similarity.info"))) {
+            for (String readAllLine : Files.readAllLines(Paths.get("similarity.info"))) {
+                if (!readAllLine.contains("= ")) continue;
+                final String key = readAllLine.split("= ")[0];
+                final double value = Double.parseDouble(readAllLine.split("= ")[1]);
+                NoteStatistics.getSimilarityMap().put(key, value);
+            }
         }
     }
 

@@ -5,8 +5,7 @@ import me.mkdomain.alfafera.stats.NoteStatistics;
 import me.mkdomain.alfafera.utils.Utils;
 
 import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Biztosítja, hogy a jegyzetek naprakészek
@@ -17,16 +16,16 @@ public class UpToDateCheckerThread extends Thread {
     public void run() {
         try {
             for (Note note : Main.getNotes()) {
-                byte[] local = Files.readAllBytes(note.getFile());
-                byte[] remote = Utils.downloadFromURL(new URL(note.getLink()));
-                String localHash = Utils.md5(local);
-                String remoteHash = Utils.md5(remote);
+                final byte[] local = NoteHolder.getNote(note.getId(), note.getFile().getFileName().toString());
+                final byte[] remote = Utils.downloadFromURL(new URL(note.getLink()));
+                final String localHash = Utils.sha512(local);
+                final String remoteHash = Utils.sha512(remote);
                 //Ha nem egyezik a hash akkor van új jegyzet
                 if (!localHash.equals(remoteHash)) {
                     System.out.println("A szerveren új jegyzet található! (" + note.name() + ")");
-                    Files.write(note.getFile(), remote, StandardOpenOption.WRITE);
+                    NoteHolder.addNote(note.getId(), remote, note.getFile().getFileName().toString());
                     note.updateImage();
-                    NoteStatistics.similarity(note, true);
+                    NoteStatistics.similarity(note, true, new AtomicInteger());
                     System.out.println("Jegyzet frissítve!");
                 }
                 Thread.sleep(900);

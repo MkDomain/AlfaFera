@@ -28,13 +28,13 @@ public class ErrorLoggerHandler implements ExceptionHandler<Exception> {
     @Override
     public void handle(@NotNull Exception exception, @NotNull Context ctx) {
         try {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            PrintStream ps1 = new PrintStream(bos);
+            final ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            final PrintStream ps1 = new PrintStream(bos);
             exception.printStackTrace(ps1);
             ctx.contentType("text/html; charset=utf-8");
-            String stacktrace = bos.toString();
-            List<String> lines = Arrays.stream(stacktrace.split("\n")).map(e -> e.startsWith("\t") ? "<a class=\"margin\">" + e.substring(1) + "</a>" : e).collect(Collectors.toList());
-            stacktrace = String.join("\n<br>", lines);
+            final String stacktrace = Arrays.stream(bos.toString().split("\n"))
+                    .map(e -> e.startsWith("\t") ? "<a class=\"margin\">" + e.substring(1) + "</a>" : e)
+                    .collect(Collectors.joining("\n<br>"));
             exceptions.add(new ExceptionDumpReport(exception, ctx.fullUrl(), System.currentTimeMillis(), ctx));
             System.err.println("Hiba futás közben: [" + exception.getClass().getName() + "]  :  " + exception.getMessage());
             ctx.result(new String(Files.readAllBytes(Paths.get("html/exception.html"))).replace("%stacktrace%", stacktrace));
