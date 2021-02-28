@@ -62,8 +62,9 @@ public class NoteStatistics {
             }
             if (!ignoreCache && similarity.containsKey(id))
                 continue;
-            final String otherText = Utils.getTextFromPdf(NoteHolder.getNote(other.getId(), note.getFile().getFileName().toString()));
-            final double point = 1 - (Levenshtein.distance(inText, otherText, Long.MAX_VALUE) / Math.max(inText.length(), otherText.length()));
+            final String otherText = Utils.getTextFromPdf(NoteHolder.getNote(other.getId(), other.getFile().getFileName().toString()));
+            final double distance = Levenshtein.distance(inText, otherText);
+            final double point = 1 - (distance / Math.max(inText.length(), otherText.length()));
             setSimilarity(id, point);
             updater.getAndIncrement();
             save2();
