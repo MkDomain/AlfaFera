@@ -16,7 +16,7 @@ public class StatisticsManager {
         try {
             //Statisztikák betöltése (ha van honnan)
             if (Files.exists(Paths.get("statistics.info"))) {
-                final DataInputStream in = new DataInputStream(new FileInputStream("statistics.info"));
+                final DataInputStream in = new DataInputStream(new BufferedInputStream(new FileInputStream("statistics.info")));
                 servedData = in.readLong();
                 cachedData = in.readLong();
             }
